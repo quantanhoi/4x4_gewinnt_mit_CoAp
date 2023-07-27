@@ -10,6 +10,15 @@
 #include <chrono>
 
 Controller::Controller() {
+    initializeSDL();
+}
+
+Controller::~Controller() {
+    SDL_JoystickClose(joystick_);
+    SDL_Quit();
+}
+
+void Controller::initializeSDL(){
     if (SDL_Init(SDL_INIT_JOYSTICK) < 0) {
         std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
         exit(1);
@@ -24,11 +33,6 @@ Controller::Controller() {
     uint8_t initMessage = generateInitMessage();
     messages_.push(ControllerMessage(initMessage));
     std::cout << "init message pushed" << std::endl;
-}
-
-Controller::~Controller() {
-    SDL_JoystickClose(joystick_);
-    SDL_Quit();
 }
 
 ControllerMessage Controller::readMessage() {
@@ -75,8 +79,33 @@ void Controller::processEvents() {
                 SDL_JoystickClose(joystick_);
                 joystick_ = nullptr;
                 std::cout << "Joystick disconnected" << std::endl;
-                //reconnect to Pi when connection lost
-                system("bash connectController.sh");
+                // Attempt to reconnect for up to 1 minute
+                auto start = std::chrono::steady_clock::now();
+                do {
+                    // Reinitialize SDL
+                    SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+                    auto reconnect = std::chrono::steady_clock::now();
+                    std::chrono::duration<double> elapsed_seconds = reconnect-start;
+                    
+                    if(elapsed_seconds.count() > 10.0) {
+                        // Reconnect to Pi
+                        //push a health check message 
+                        uint8_t message = generateHealthCheckMessage();
+                        messages_.push(ControllerMessage(message));
+                        std::this_thread::sleep_for(std::chrono::seconds(2));
+                        system("bash connectController.sh");
+                        initializeSDL();
+                        start = std::chrono::steady_clock::now();
+                    }
+                    
+                    // Check the elapsed time
+                    // auto end = std::chrono::steady_clock::now();
+                    // std::chrono::duration<double> elapsed_seconds = end-start;
+                    // if (elapsed_seconds.count() > 60.0) {
+                    //     std::cerr << "Timeout: Failed to reconnect joystick after 1 minute" << std::endl;
+                    //     break;
+                    // }
+                } while (!joystick_);
             }
         } else if (e.type == SDL_JOYDEVICEADDED) {
             // A joystick has been connected

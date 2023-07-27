@@ -1,11 +1,12 @@
 #!/bin/bash
 set -x
 
-# Set MAC address
-MAC="E8:47:3A:02:3F:27" #Simon Controller black
-#MAC="E8:47:3A:01:EE:E3"  #white
-#MAC="E8:47:3A:02:A3:F0" #black
 
+# grep searches for the line containing "Controller-MAC"
+# grep -v "^#" excludes lines that start with '#'
+# cut splits the line at the '=' character and outputs the second field
+
+MAC=$(grep "Controller-MAC" ../config.txt | grep -v "^#" | cut -d '=' -f 2)
 {
   #Check if Controller is already connected
   echo "info $MAC"

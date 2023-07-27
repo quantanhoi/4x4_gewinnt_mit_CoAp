@@ -32,12 +32,10 @@ dpkg -l libsdl2-dev > /dev/null 2>&1 || {
 export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Compile your program
-CPP_FILES="main.cpp Controller.cpp MessageQueue.cpp Process.cpp CoAPSender.cpp common.o ControllerMessage.cpp logging.cpp"
+CPP_FILES="main.cpp Controller.cpp MessageQueue.cpp Process.cpp CoAPSender.cpp common.o ControllerMessage.cpp logging.cpp ConfigReader.cpp"
 g++ -c common.cc
-g++ -c ControllerMessage.cpp
-g++ -c logging.cpp
 g++ -o my_program $CPP_FILES -I/usr/include/SDL2 -lSDL2 -lpthread -lcoap-3 -Wno-psabi
-#g++ -o my_program main.cpp Controller.cpp MessageQueue.cpp Process.cpp CoAPSender.cpp common.o -I/usr/include/SDL2 -lSDL2 -lpthread -lcoap-3
+
 
 # Connect Controller
 bash connectController.sh

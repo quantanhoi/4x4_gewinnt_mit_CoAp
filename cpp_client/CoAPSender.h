@@ -11,14 +11,21 @@
 
 class CoAPSender {
 public:
+    static CoAPSender* instance_;
     CoAPSender(MessageQueue& queue);
     void operator()();
+    static coap_response_t response_handler(coap_session_t *session, 
+                                            const coap_pdu_t *sent,
+                                            const coap_pdu_t *received,
+                                            int);
+
 
 private:
     MessageQueue& queue_;
     coap_context_t* ctx;
     coap_session_t* session;
     coap_address_t dst;
+    int have_response_;
 
     int send_payload_to_server(const char* payload, ControllerMessage msg);
 };

@@ -1,16 +1,17 @@
 import sys
 import threading
+import time
 
 # ConnectFour.py
 
 from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QApplication
+from PyQt5.QtWidgets import QMainWindow, QApplication
 
 from aiocoap import Context
 import asyncio
 
-from MenuScreen import *
-from GameScreen import *
+from Leaderboard import *
+from GameController import *
 from ControllerResource import *
 
 
@@ -18,22 +19,43 @@ class ConnectFour(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        # ---- Player Map ---
+        # self.player_map = {}
+        # self.check_connection_thread = threading.Thread(target=self.check_connections, daemon=True)
+        # self.check_connection_thread.start()
+
+        # Colors
+        BACKGROUND_COLOR = "#282c34"
+
         # ---UI---
-        self.setWindowTitle("4-Gewinnt")
+        self.setObjectName('MainWindow')  # Set the object name
+        self.setWindowTitle("Connect-Collect")
         self.setGeometry(150, 100, 800, 800)
 
-        self.stacked_widget = QStackedWidget()
-        self.currentScreenIndex = 0
+        self.game_controller = GameController()
+        self.leaderboard = Leaderboard(self.game_controller)
+        self.game_controller.setLeaderboard(self.leaderboard)
+        self.leaderboard.setFixedWidth(400)  # Set the fixed width
 
-        self.menu_screen = MenuScreen()  # index 0
-        self.stacked_widget.addWidget(self.menu_screen)
+        # Create a horizontal layout
+        layout = QHBoxLayout()
 
-        self.game_screen = GameScreen()  # index 1
-        self.stacked_widget.addWidget(self.game_screen)
+        # Add the playing field and leaderboard to the layout
+        layout.addWidget(self.game_controller.field)
+        layout.addWidget(self.leaderboard)
 
-        self.setCentralWidget(self.stacked_widget)
+        # Create a container widget to hold the layout
+        container = QWidget()
+        container.setLayout(layout)
 
-        self.switch_to_menu_screen()
+        # Set the container as the central widget
+        self.setCentralWidget(container)
+
+        self.setStyleSheet(f"""
+            #MainWindow {{ 
+                background-color: {BACKGROUND_COLOR};
+            }}
+        """)
 
         self.show()
 
@@ -50,34 +72,34 @@ class ConnectFour(QMainWindow):
 
     #############################################################################################
 
-    # ---UI---------------------------------------------------
-    def switch_to_menu_screen(self):
-        self.stacked_widget.setCurrentWidget(self.menu_screen)
-        self.updateScreenIndex()
+    def check_connections(self):
+        while True:
+            # Wait for 15 seconds
+            time.sleep(15)
 
-    def switch_to_game_screen(self):
-        self.game_screen.reset_game()
-        self.stacked_widget.setCurrentWidget(self.game_screen)
-        self.updateScreenIndex()
+            all_connected = True
+            # Check all players in the map
+            for ip_address, player_info in self.player_map.items():
+                if player_info["isConnected"] == 0:
+                    all_connected = False
+                    print("Player " + str(player_info["playerID"]) + " is not connected")
+                    # ToDo: self.gamecontroller.removePlayer(player_id)
 
-    def updateScreenIndex(self):
-        self.currentScreenIndex = self.stacked_widget.currentIndex()
-
-    def sendInputToCurrentScreen(self, controllerInput):
-        #print(self.currentScreenIndex)
-        if self.currentScreenIndex == 0:
-            self.menu_screen.triggerAction(controllerInput)
-        elif self.currentScreenIndex == 1:
-            self.game_screen.triggerAction(controllerInput)
-        else:
-            print("Error: Screen-Index out of range (in sendInputToCurrentScreen)")
+            if all_connected:
+                # If all players are connected, set all isConnected values to 0
+                for ip_address in self.player_map:
+                    self.player_map[ip_address]["isConnected"] = 0
+                print("all players are connected")
+            else:
+                # insert what you want to do when the player is not connected here
+                print("at least one player is not connected")
 
     # ---CoAP---------------------------------------------------
     async def create_coap_server(self):
         root = resource.Site()
         root.add_resource(('hello',), self.controller_resource)
 
-        ip_address = "192.168.0.104"
+        ip_address = read_config_file("Server-IP")
         port = 5683
 
         self.context = await Context.create_server_context(root, bind=(ip_address, port))
@@ -90,34 +112,79 @@ class ConnectFour(QMainWindow):
         self.loop.run_until_complete(self.create_coap_server())
         self.loop.run_forever()
 
-    @pyqtSlot(int)
-    #handling method for coap message
-    def handle_payload(self, payload):
-        data = payload  # payload is now an integer
-        isInit = (data & 0b10000) >> 4
-        if(isInit):
+    @pyqtSlot(tuple)
+    def handle_payload(self, data):
+        client_address, payload = data
+        client_ip = client_address.split(':')[0]  # Only keep the IP part
+        isControllerConnected = (payload & 0b1000) >> 3  # extract the first bit
+        isHealthCheck = (payload & 0b100) >> 2
+        number = payload & 0b11  # extract the remaining bits
+        isInit = (payload & 0b10000) >> 4
+
+        print("-------------------------")
+        print(f"client_ip: {client_ip}")
+        print(f"isControllerConnected: {isControllerConnected}")
+        print(f"isHealthCheck: {isHealthCheck}")
+        print(f"number: {number}")
+        print(f"isInit: {isInit}")
+        print("-------------------------")
+        print("Lock acquired in handle_payload")
+        self.game_controller.players_lock.acquire()
+        player = next((p for p in self.game_controller.players if p.ip_address == client_ip), None)
+        self.game_controller.players_lock.release()
+        print("Lock released in handle_payload")
+
+        if isInit:
             print("init message")
+            if not player:
+                print("Lock acquired in handle_payload")
+                self.game_controller.players_lock.acquire()
+                self.game_controller.addPlayer(client_ip, True)
+                self.game_controller.players_lock.release()
+                print(f"Added new player with IP address {client_ip}")
+                print("Lock released in handle_payload")
+            else:
+                player.isControllerConnected = bool(isControllerConnected)
+                print(
+                    f"Player with IP address {client_ip} already exists and isControllerConnected status is now {player.controllerConnected}")
             return
-        #print("not init")
-        isConnected = (data & 0b1000) >> 3  # extract the first bit
-        isHealthCheck = (data & 0b100) >> 2
-        number = data & 0b11  # extract the remaining bits
-        #
-        if isConnected == 1:
+
+        if player:
             if isHealthCheck == 1:
-                print("Controller is still connected")
-            else: 
-                #print("not health check")
-                if number == 3:
-                    self.sendInputToCurrentScreen("left")  # left
-                elif number == 0:
-                    self.sendInputToCurrentScreen("enter")  # enter
-                elif number == 1:
-                    self.sendInputToCurrentScreen("right")  # right
-                else:
-                    print("Warning: ControllerInput not listed for game action -->" + str(number))
-        else:
-            print("Controller is not connected")
+                player.lastActiveTimestamp = time.time()  # Update the time when client last active
+                player.isControllerConnected = bool(isControllerConnected)
+            else:
+                player.lastActiveTimestamp = time.time() if player.controllerConnected else player.lastActiveTimestamp  # Update the time when client last active if controller is connected
+                #print("passed timestamp")
+                player.isControllerConnected = True
+                currentPlayerID = self.game_controller.current_playerID
+                print("current_player_index = " + str(currentPlayerID))
+                print("own ID = " + str(player.playerID))
+                if player.playerID == currentPlayerID:
+                    if number == 3:
+                        self.game_controller.triggerAction("left")  # left
+                    elif number == 0:
+                        self.game_controller.triggerAction("enter")  # enter
+                    elif number == 1:
+                        self.game_controller.triggerAction("right")  # right
+                    else:
+                        print("Warning: ControllerInput not listed for game action -->" + str(number))
+
+
+
+
+def read_config_file(whatIneed):
+    with open('../config.txt', 'r') as file:  # replace with your file path
+        for line in file:
+            if line.startswith('#'):  # skip comment lines
+                continue
+            if '=' in line:
+                key, value = line.strip().split('=')
+                if key == whatIneed:
+                    return value
+
+    print(f"Unable to find value for {whatIneed}")
+    return None
 
 
 if __name__ == "__main__":

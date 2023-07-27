@@ -3,10 +3,14 @@
 //
 
 #include "CoAPSender.h"
-#include <iostream>
 #include "logging.h"
+#include "ConfigReader.h"
+#include <iostream>
+
+CoAPSender* CoAPSender::instance_ = nullptr;
 
 CoAPSender::CoAPSender(MessageQueue& queue) : queue_(queue) {
+    instance_ = this;
     // Your CoAP initialization code goes here
     coap_startup();
 
@@ -14,11 +18,11 @@ CoAPSender::CoAPSender(MessageQueue& queue) : queue_(queue) {
     coap_set_log_level(COAP_LOG_WARN);
 
     /* resolve destination address where server should be sent */
-    //if (resolve_address("localhost", "5683", &dst) < 0) {
-    if (resolve_address("192.168.0.104", "5683", &dst) < 0) {
+    if (resolve_address(ConfigReader::readConfigFile("Server-IP").c_str(), "5683", &dst) < 0) {
         coap_log_crit("failed to resolve address\n");
         exit(1);
     }
+
 
     /* create CoAP context and a client session */
     if (!(ctx = coap_new_context(nullptr))) {
@@ -36,12 +40,16 @@ CoAPSender::CoAPSender(MessageQueue& queue) : queue_(queue) {
         exit(1);
     }
 
-    coap_register_response_handler(ctx, [](auto, auto,
-                                           const coap_pdu_t *received,
-                                           auto) {
-        //coap_show_pdu(COAP_LOG_WARN, received); //for debugging
-        return COAP_RESPONSE_OK;
-    });
+    // coap_register_response_handler(ctx, [this](auto, auto,
+    //                                        const coap_pdu_t *received,
+    //                                        auto) {
+    //     //coap_show_pdu(COAP_LOG_WARN, received); //for debugging
+    //     have_response_ = 1;
+    //     return COAP_RESPONSE_OK;
+    // });
+
+    coap_register_response_handler(ctx, &CoAPSender::response_handler);
+
 }
 
 void CoAPSender::operator()() {
@@ -55,6 +63,11 @@ void CoAPSender::operator()() {
             payload[0] = msg.payload();
             payload[1] = '\0';
             send_payload_to_server(payload,msg);
+            
+            have_response_ = 0; // Reset have_response_
+            while (have_response_ == 0) {
+                coap_io_process(ctx, COAP_IO_WAIT);
+            }
         }
     }
 }
@@ -88,3 +101,44 @@ int CoAPSender::send_payload_to_server(const char* payload, ControllerMessage ms
 
     return 0;
 }
+
+
+
+// //original working repsonse handler
+// coap_response_t CoAPSender::response_handler(coap_session_t *session, 
+//                                              const coap_pdu_t *sent,
+//                                              const coap_pdu_t *received,
+//                                              int) {
+//     instance_->have_response_ = 1;
+//     return COAP_RESPONSE_OK;
+// }
+
+
+//to test response handler
+coap_response_t CoAPSender::response_handler(coap_session_t *session, 
+                                             const coap_pdu_t *sent,
+                                             const coap_pdu_t *received,
+                                             int nack_reason) {
+    // Getting payload data
+    const uint8_t* data = nullptr;
+    size_t data_len = 0;
+    coap_get_data(received, &data_len, &data);
+
+    if(data_len > 0) {
+        // Print payload data as a string (if it's a string)
+        std::cout << "Received response: " << std::string((char*)data, data_len) << std::endl;
+
+        // Or, print it as hexadecimal (useful for non-string data)
+        for(size_t i = 0; i < data_len; i++)
+            printf("%02x", data[i]);
+        printf("\n");
+    }
+    else {
+        std::cout << "Received empty response" << std::endl;
+    }
+
+    instance_->have_response_ = 1;
+    return COAP_RESPONSE_OK;
+}
+
+

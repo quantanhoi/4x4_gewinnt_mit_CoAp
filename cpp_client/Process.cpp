@@ -27,7 +27,7 @@ void Process::operator()() {
             queue_.push(msg);
             lastPushTime = now;
         }
-        else if (elapsedSeconds >= 5) {
+        else if (elapsedSeconds >= 1) {
             // Push your chosen message here
             uint8_t message = controller_.generateHealthCheckMessage();
             queue_.push(ControllerMessage(message));

@@ -1,0 +1,14 @@
+# To configure remove the '#' in front of your Configuration (Server-IP & Controller-MAC)
+# Dont change formatting like adding whitespaces or removing '#' in empty lines
+
+# Simon Config:
+#Server-IP=192.168.0.106
+Controller-MAC=E8:47:3A:02:3F:27
+
+# Trung Config:
+Server-IP=192.168.0.103
+#Controller-MAC=E8:47:3A:02:A3:F0
+
+# Phuc Config:
+#Server-IP=
+#Controller-MAC=E8:47:3A:01:EE:E3

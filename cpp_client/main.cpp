@@ -6,6 +6,7 @@
 #include "MessageQueue.h"
 #include "Process.h"
 #include "CoAPSender.h"
+#include "ConfigReader.h"
 #include<iostream>
 #include <thread>
 #include<SDL.h>
@@ -16,6 +17,13 @@ int main() {
         std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
         return 1;
     }
+
+    std::string serverIP = ConfigReader::readConfigFile("Server-IP");
+    std::cout << "Server IP: " << serverIP << "\n";
+
+    std::string controllerMac = ConfigReader::readConfigFile("Controller-MAC");
+    std::cout << "Controller MAC: " << controllerMac << "\n";
+
 
     Controller controller;
     MessageQueue queue;

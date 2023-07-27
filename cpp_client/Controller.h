@@ -16,6 +16,7 @@ public:
     ~Controller();
     ControllerMessage readMessage();
     void processEvents();
+    void initializeSDL();
     uint8_t generatePayload(uint8_t button);
     uint8_t generateHealthCheckMessage();
     std::queue<ControllerMessage> getMessageQueue();
