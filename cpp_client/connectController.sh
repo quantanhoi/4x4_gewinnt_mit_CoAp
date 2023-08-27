@@ -2,10 +2,6 @@
 set -x
 
 
-# grep searches for the line containing "Controller-MAC"
-# grep -v "^#" excludes lines that start with '#'
-# cut splits the line at the '=' character and outputs the second field
-
 MAC=$(grep "Controller-MAC" ../config.txt | grep -v "^#" | cut -d '=' -f 2)
 {
   #Check if Controller is already connected

@@ -1,7 +1,3 @@
-//
-// Created by 49152 on 11.05.2023.
-//
-
 #include "CoAPSender.h"
 #include "logging.h"
 #include "ConfigReader.h"
@@ -9,12 +5,18 @@
 
 CoAPSender* CoAPSender::instance_ = nullptr;
 
+/**
+ * @brief Constructor for the CoAPSender class.
+ * Initializes the CoAP context, sets the logging level, resolves the server address,
+ * creates a new CoAP context and client session, and registers the response handler.
+ * @param queue Reference to the MessageQueue.
+ */
 CoAPSender::CoAPSender(MessageQueue& queue) : queue_(queue) {
     instance_ = this;
-    // Your CoAP initialization code goes here
+
     coap_startup();
 
-    /* Set logging level */
+    /* Set coap-logging level */
     coap_set_log_level(COAP_LOG_WARN);
 
     /* resolve destination address where server should be sent */
@@ -39,23 +41,20 @@ CoAPSender::CoAPSender(MessageQueue& queue) : queue_(queue) {
         coap_log_emerg("cannot create client session\n");
         exit(1);
     }
-
-    // coap_register_response_handler(ctx, [this](auto, auto,
-    //                                        const coap_pdu_t *received,
-    //                                        auto) {
-    //     //coap_show_pdu(COAP_LOG_WARN, received); //for debugging
-    //     have_response_ = 1;
-    //     return COAP_RESPONSE_OK;
-    // });
-
     coap_register_response_handler(ctx, &CoAPSender::response_handler);
 
 }
 
+
+
+
+/**
+ * @brief Overloads the function call operator for CoAPSender.
+ * Infinitely listens for new messages from the queue and sends them to the server.
+ */
 void CoAPSender::operator()() {
     while (true) {
         ControllerMessage msg = queue_.pop();
-
         if (msg.payload() != 0) {
             logMessage(msg,std::string("PopFromQ"));
             // Convert uint8_t to char*
@@ -73,6 +72,13 @@ void CoAPSender::operator()() {
 }
 
 
+/**
+ * @brief Sends a payload to the CoAP server.
+ * Creates a new PDU, sets the URI-Path option, and sends the PDU to the server.
+ * @param payload Pointer to the payload data to be sent.
+ * @param msg The ControllerMessage that contains additional data about the message.
+ * @return Returns 0 if the message is successfully sent, otherwise returns -1.
+ */
 int CoAPSender::send_payload_to_server(const char* payload, ControllerMessage msg) {
     // Your send_payload_to_server code goes here
     coap_pdu_t* pdu = coap_pdu_init(COAP_MESSAGE_NON,
@@ -104,21 +110,21 @@ int CoAPSender::send_payload_to_server(const char* payload, ControllerMessage ms
 
 
 
-// //original working repsonse handler
-// coap_response_t CoAPSender::response_handler(coap_session_t *session, 
-//                                              const coap_pdu_t *sent,
-//                                              const coap_pdu_t *received,
-//                                              int) {
-//     instance_->have_response_ = 1;
-//     return COAP_RESPONSE_OK;
-// }
 
-
+/**
+ * @brief Handles the response from the CoAP server.
+ * Parses the received PDU and prints the payload to the console.
+ * @param session Pointer to the active CoAP session.
+ * @param sent Pointer to the sent PDU.
+ * @param received Pointer to the received PDU.
+ * @param nack_reason Reason for negative acknowledgment, if any.
+ * @return Returns COAP_RESPONSE_OK indicating that the response was handled successfully.
+ */
 //to test response handler
 coap_response_t CoAPSender::response_handler(coap_session_t *session, 
                                              const coap_pdu_t *sent,
                                              const coap_pdu_t *received,
-                                             int nack_reason) {
+                                            int nack_reason) {
     // Getting payload data
     const uint8_t* data = nullptr;
     size_t data_len = 0;
@@ -126,11 +132,7 @@ coap_response_t CoAPSender::response_handler(coap_session_t *session,
 
     if(data_len > 0) {
         // Print payload data as a string (if it's a string)
-        std::cout << "Received response: " << std::string((char*)data, data_len) << std::endl;
-
-        // Or, print it as hexadecimal (useful for non-string data)
-        for(size_t i = 0; i < data_len; i++)
-            printf("%02x", data[i]);
+        std::cout << "Received response" << std::endl;
         printf("\n");
     }
     else {

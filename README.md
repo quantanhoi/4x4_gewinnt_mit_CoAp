@@ -1,32 +1,34 @@
-# 4x4_Gewinnt
-This is a project for Project system development: Internet of Things course, which allows you to play 4x4-gewinnt games on your computer remotely through raspberry pi and ps4 controllers.
-Server and Clients use Contraint objects application protocol (CoAp) to interact with each others
+## Anleitung zum Starten von Server und Client
 
-## How to set up
+Folgen Sie diesen Schritten, um Server und Client korrekt zu starten:
 
-## SSH to Pi
-```
-ssh pi@<ipAdress>
-```
-pw: 
-```
-raspberry
-```
-## Setup Client
-```
-cd 4x4_gewinnt
-```
-### edit configurations in [config.txt](config.txt)
-```
-- set right Server-IP
-- set right Controller-MAC
-```
-## Run Client
-```
-cd cpp_client
+1. **config.txt anpassen:**
+   - Auf dem Server: Tragen Sie nur Ihre eigene IP-Adresse ein.
+   - Auf dem Client: Tragen Sie die IP-Adresse des Servers und die MAC des Controllers ein.
 
-bash run.sh
-```
-Make sure to put your controller in pairing-mode by pressing the __PS-Button and Share-Button__ at the same time for a few Seconds.
+2. **Server starten:**
+   - Im Terminal:
+     ```bash
+     $env:PYTHONPATH += ";[Your_Path]\4x4_gewinnt"
+     py .\py_server\src\ConnectCollect.py
+     ```
+   - Alternativ in PyCharm:
+     - Öffnen Sie `ConnectCollect.py`.
+     - Wählen Sie `Run CurrentFile`.
 
-Success if you see in terminal: "HealthCheck: Controller is connected"
+3. **Controller in Pairing-Mode bringen.**
+
+4. **Client starten:**
+   - Navigieren Sie in den `cpp_client` Ordner:
+     ```bash
+     bash run.sh
+     ```
+
+Vergewissern Sie sich, dass Sie vor dem Start alle erforderlichen Abhängigkeiten und Einstellungen vorgenommen haben.
+
+## Server Keybinds
+
+Taste: `1` - Keyboard Spieler hinzufügen (sofern noch keiner existiert)
+Taste: `2` - Keyboard Spieler entfernen (sofern bereits einer existiert)
+
+Pfeiltasten liks, rechts, unten - Steuerung des Spiel-Chips analog zur Controller-Steuerung

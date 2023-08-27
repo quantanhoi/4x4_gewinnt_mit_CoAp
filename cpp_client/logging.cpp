@@ -6,6 +6,16 @@
 
 std::mutex log_mutex;  // global mutex for log file access
 
+
+/**
+ * @brief Logs the given ControllerMessage.
+ * 
+ * The function calculates the time elapsed since the message was last logged or created,
+ * then logs the message's ID, the station, and the elapsed time to a file.
+ * 
+ * @param message The ControllerMessage to log.
+ * @param station The station where the message is processed.
+ */
 void logMessage(ControllerMessage& message, const std::string& station) {
     // Get the current time
     auto now = std::chrono::high_resolution_clock::now();
